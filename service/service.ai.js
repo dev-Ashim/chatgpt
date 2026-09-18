@@ -1,29 +1,14 @@
-const OpenAI = require("openai");
+const  { GoogleGenAI }=require('@google/genai')
 
-const openai = new OpenAI({
-    baseURL: "https://api.deepseek.com",
-    apiKey: process.env.DEEPSEEK_API_KEY
-});
+const ai = new GoogleGenAI({});
 
- async function generateResponse(content) {
-    console.log("Service received:", content);
-
-    const completion = await openai.chat.completions.create({
-        messages: [
-            {
-                role: "system",
-                content: "You are a helpful assistant."
-            },
-            {
-                role: "user",
-                content: content
-            }
-        ],
-        model: "deepseek-chat",
-        stream: false
+async function generateResponse(content) {
+    const interaction = await ai.interactions.create({
+        model: "gemini-3.5-flash",
+        input: content
     });
 
-    return completion.choices[0].message.content;
+    return interaction.output_text;
 }
 
-module.exports = generateResponse;
+module.exports = {generateResponse};
