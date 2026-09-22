@@ -37,7 +37,25 @@ function initSocketServer(httpServer) {
                 role: "user",
             });
           const vector= await aiServices.createEmbedding(messagePayLoad.content)
-          console.log("vector",vector)
+          
+          await createMemory({
+            vectors:vector,
+            messageId:message._id,
+            metadata:{
+                chatId:messagePayLoad.chat,
+                userId:socket.user._id,
+                text:message.content
+            },
+           
+          })
+          const memory =await queryMemory({
+            quervector:
+            vector,
+           limit:3,
+           metadata:{}
+          })
+          
+          console.log("memory:", memory);
           
             const chatHistory=(await mesaageModel.find({
                 chat:messagePayLoad.chat
@@ -60,12 +78,27 @@ function initSocketServer(httpServer) {
         };
     })
 );
-            await mesaageModel.create({
+
+
+
+       const responseMessage=  await mesaageModel.create({
                 user: socket.user._id,
                 chat: messagePayLoad.chat,
                 content: response,
                 role: "model",
             });
+
+               const responseEmbedding=await aiServices.createEmbedding(response)
+  await createMemory({
+            vectors:responseEmbedding,
+            messageId:responseMessage._id,
+            metadata:{
+                chatId:messagePayLoad.chat,
+                userId:socket.user._id,
+                text:messagePayLoad.response
+            },
+           
+          })
             socket.emit("ai-response", { 
                 content: response,
                 chat: messagePayLoad.chat,
