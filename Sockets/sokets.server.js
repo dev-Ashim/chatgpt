@@ -30,7 +30,7 @@ function initSocketServer(httpServer) {
         socket.on("ai-message", async (messagePayLoad) => {
             console.log(messagePayLoad);
            
-            await mesaageModel.create({
+         const message = await mesaageModel.create({
                 user: socket.user._id,
                 chat: messagePayLoad.chat,
                 content: messagePayLoad.content,
