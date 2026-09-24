@@ -19,8 +19,10 @@ async function queryMemory({quervector,limit=5,metadata}){
     const data=await chatGptIndex.query({
         vector: quervector,
         topK: limit,
-        filter: metadata?{metadata}:undefined,
-        includeValues: true,
+      filter: metadata,
+        includeValues: false,
+includeMetadata: true
+       
     })
     return data.matches
 

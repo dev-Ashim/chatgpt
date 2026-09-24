@@ -37,6 +37,14 @@ function initSocketServer(httpServer) {
                 role: "user",
             });
           const vector= await aiServices.createEmbedding(messagePayLoad.content)
+           const memory =await queryMemory({
+            quervector:
+            vector,
+           limit:3,
+          metadata: {
+    userId: String(socket.user._id)
+}
+          })
           
           await createMemory({
             vectors:vector,
@@ -48,22 +56,14 @@ function initSocketServer(httpServer) {
             },
            
           })
-          const memory =await queryMemory({
-            quervector:
-            vector,
-           limit:3,
-           metadata:{}
-          })
-          
-          console.log("memory:", memory);
+         
+        
           
             const chatHistory=(await mesaageModel.find({
                 chat:messagePayLoad.chat
-            }).sort({createdAt:1}).limit(20).lean()).reverse()
+            }).sort({createdAt:-1}).limit(20).lean()).reverse()
             console.log("chatHistory:",chatHistory);
-
-            const response = await aiServices.generateResponse(
-    chatHistory.map((item) => {
+  const stm=chatHistory.map((item) => {
         return {
             type: item.role === "user"
                 ? "user_input"
@@ -77,7 +77,26 @@ function initSocketServer(httpServer) {
             ]
         };
     })
-);
+
+
+    const ltm=[
+        {
+            type: "user_input",
+            content: [
+                {
+                    type: "text",
+                    text: `these are some privios messege from chat,use them to generate message
+                    ${memory.map(item=>item.metadata.text).join("\n")}`
+                }
+            ]
+        }];
+
+        ([...ltm,...stm]).map(item=>{
+            console.log(item)
+        })
+
+
+            const response = await aiServices.generateResponse([...ltm,...stm]);
 
 
 
@@ -95,7 +114,7 @@ function initSocketServer(httpServer) {
             metadata:{
                 chatId:messagePayLoad.chat,
                 userId:socket.user._id,
-                text:messagePayLoad.response
+                text:response
             },
            
           })

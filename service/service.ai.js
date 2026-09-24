@@ -4,7 +4,7 @@ const ai = new GoogleGenAI({});
 
 async function generateResponse(content) {
     const interaction = await ai.interactions.create({
-        model: "gemini-3.6-flash",
+        model: "gemini-3.5-flash-lite",
         input: content
     });
 
