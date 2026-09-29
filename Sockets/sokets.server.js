@@ -30,14 +30,29 @@ function initSocketServer(httpServer) {
         socket.on("ai-message", async (messagePayLoad) => {
             console.log(messagePayLoad);
            
-         const message = await mesaageModel.create({
+    /*   const message = await mesaageModel.create({
+                user: socket.user._id, 
+                chat: messagePayLoad.chat,
+                content: messagePayLoad.content,
+                role: "user",
+            });*/
+          /*  const vector= await aiServices.createEmbedding(messagePayLoad.content) */
+
+
+          const [message,vector]=await Promise.all([
+            mesaageModel.create({
                 user: socket.user._id,
                 chat: messagePayLoad.chat,
                 content: messagePayLoad.content,
                 role: "user",
-            });
-          const vector= await aiServices.createEmbedding(messagePayLoad.content)
-           const memory =await queryMemory({
+            }),
+          aiServices.createEmbedding(messagePayLoad.content),
+
+          ])
+
+
+
+/*        const memory =await queryMemory({
             quervector:
             vector,
            limit:3,
@@ -45,25 +60,30 @@ function initSocketServer(httpServer) {
     userId: String(socket.user._id)
 }
           })
-          
-          await createMemory({
-            vectors:vector,
-            messageId:message._id,
-            metadata:{
-                chatId:messagePayLoad.chat,
-                userId:socket.user._id,
-                text:message.content
-            },
-           
-          })
-         
-        
-          
-            const chatHistory=(await mesaageModel.find({
+
+
+
+ const chatHistory=(await mesaageModel.find({
                 chat:messagePayLoad.chat
             }).sort({createdAt:-1}).limit(20).lean()).reverse()
             console.log("chatHistory:",chatHistory);
-  const stm=chatHistory.map((item) => {
+          */
+
+
+    const[memory,chatHistory]=await Promise.all([
+        queryMemory({
+            queryVector:vector,
+           limit:3,
+          metadata: {
+    userId: String(socket.user._id)
+}
+          }) ,
+          mesaageModel.find({
+                chat:messagePayLoad.chat
+            }).sort({createdAt:-1}).limit(20).lean()
+    ])
+     
+           const stm=chatHistory.map((item) => {
         return {
             type: item.role === "user"
                 ? "user_input"
@@ -77,7 +97,21 @@ function initSocketServer(httpServer) {
             ]
         };
     })
-
+         
+         
+        
+          await createMemory({
+            vectors:vector,
+            messageId:message._id,
+            metadata:{
+                chatId:messagePayLoad.chat,
+                userId:socket.user._id,
+                text:message.content
+            },
+           
+          })
+          
+           
 
     const ltm=[
         {
@@ -85,7 +119,9 @@ function initSocketServer(httpServer) {
             content: [
                 {
                     type: "text",
-                    text: `these are some privios messege from chat,use them to generate message
+                    text: `The following are reference memories only.
+Do not answer them individually.
+Use them only to answer the latest user message.
                     ${memory.map(item=>item.metadata.text).join("\n")}`
                 }
             ]
@@ -98,9 +134,7 @@ function initSocketServer(httpServer) {
 
             const response = await aiServices.generateResponse([...ltm,...stm]);
 
-
-
-       const responseMessage=  await mesaageModel.create({
+/*    const responseMessage=  await mesaageModel.create({
                 user: socket.user._id,
                 chat: messagePayLoad.chat,
                 content: response,
@@ -108,22 +142,44 @@ function initSocketServer(httpServer) {
             });
 
                const responseEmbedding=await aiServices.createEmbedding(response)
-  await createMemory({
-            vectors:responseEmbedding,
-            messageId:responseMessage._id,
-            metadata:{
-                chatId:messagePayLoad.chat,
-                userId:socket.user._id,
-                text:response
-            },
-           
-          })
+   */
+
+
+     
+            const [responseMessage, responseEmbedding] = await Promise.all([
+                mesaageModel.create({
+                    user: socket.user._id,
+                    chat: messagePayLoad.chat,
+                    content: response,
+                    role: "model",
+                }),
+                aiServices.createEmbedding(response)
+            ]);
+
+            await createMemory({
+                vectors: responseEmbedding,
+                messageId: responseMessage._id,
+                metadata: {
+                    chatId: messagePayLoad.chat,
+                    userId: socket.user._id,
+                    text: response
+                },
+            });
+
             socket.emit("ai-response", { 
                 content: response,
                 chat: messagePayLoad.chat,
             });
         });
+
+
+
+        
     });
+
+
 }
 
+
+ 
 module.exports = initSocketServer;
