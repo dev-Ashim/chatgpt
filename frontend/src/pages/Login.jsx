@@ -4,7 +4,7 @@ import{useNavigate}from'react-router-dom'
 
 
 
-const Login = () => {
+const Login = ({ onAuthenticated }) => {
   const navigate = useNavigate()
     const handleSubmit = async (event) => {
   event.preventDefault();
@@ -19,7 +19,7 @@ const Login = () => {
       { withCredentials: true }
     );
 
-    console.log(response.data);
+    onAuthenticated(response.data.user)
     navigate("/");
   } catch (error) {
     console.log(error.response?.data || error.message);

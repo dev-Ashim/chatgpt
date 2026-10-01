@@ -2,7 +2,7 @@ import AuthLayout from '../components/AuthLayout'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 
-const Register = () => {
+const Register = ({ onAuthenticated }) => {
 const navigate = useNavigate()
     const handleSubmit = async (event) => {
   event.preventDefault();
@@ -27,7 +27,7 @@ const lastName = event.target.lastName.value;
   }
 );
 
-    console.log(response.data);
+    onAuthenticated(response.data.user)
     navigate("/");
   } catch (error) {
     console.log(error.response?.data || error.message);     
