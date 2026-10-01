@@ -1,6 +1,39 @@
 import AuthLayout from '../components/AuthLayout'
+import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
 
 const Register = () => {
+const navigate = useNavigate()
+    const handleSubmit = async (event) => {
+  event.preventDefault();
+
+  const email = event.target.email.value;
+  const password = event.target.password.value;
+const firstName = event.target.firstName.value;
+const lastName = event.target.lastName.value;
+  try {
+    const response = await axios.post(
+  "http://localhost:3000/api/auth/register",
+  {
+    fullName: {
+      firstName,
+      lastName
+    },
+    email,
+    password
+  },
+  {
+    withCredentials: true
+  }
+);
+
+    console.log(response.data);
+    navigate("/");
+  } catch (error) {
+    console.log(error.response?.data || error.message);     
+  }
+};
+
   return (
     <AuthLayout
       eyebrow="Join ChatSpace"
@@ -10,7 +43,7 @@ const Register = () => {
       footerLabel="Log in"
       footerTo="/login"
     >
-      <form className="auth-form" onSubmit={(event) => event.preventDefault()}>
+      <form className="auth-form" onSubmit={handleSubmit}>
         <div className="form-name-row">
           <label htmlFor="register-first-name">
             First name

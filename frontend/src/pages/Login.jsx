@@ -1,9 +1,11 @@
 import AuthLayout from '../components/AuthLayout'
 import axios from 'axios'
+import{useNavigate}from'react-router-dom'
 
 
 
 const Login = () => {
+  const navigate = useNavigate()
     const handleSubmit = async (event) => {
   event.preventDefault();
 
@@ -18,6 +20,7 @@ const Login = () => {
     );
 
     console.log(response.data);
+    navigate("/");
   } catch (error) {
     console.log(error.response?.data || error.message);
   }
