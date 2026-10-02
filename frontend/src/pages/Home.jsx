@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { io } from "socket.io-client";
 import { useDispatch, useSelector } from 'react-redux'
 import ChatComposer from '../components/ChatComposer'
 import ChatConversation from '../components/ChatConversation'
@@ -15,9 +16,14 @@ const Home = ({ onLogout, userName }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newChatTitle, setNewChatTitle] = useState('')
-
-  const activeChat = chats.find((chat) => chat.id === currentChatId)
-  const activeMessages = activeChat ? messagesByChatId[activeChat.id] || [] : []
+  const [pendingResponses, setPendingResponses] = useState({})
+const [socket, setSocket] = useState(null)
+ const activeChat = chats.find(
+  (chat) => (chat._id || chat.id) === currentChatId
+)
+ const activeMessages = currentChatId
+  ? messagesByChatId[currentChatId] || []
+  : []
   const accountInitials = (userName || 'Account')
     .split(/\s+/)
     .map((namePart) => namePart[0])
@@ -56,11 +62,40 @@ useEffect(()=>{
     console.log(response.data)
     dispatch(setchats(response.data.chats))
   })
-},[dispatch])
+ const tempSocket = io("http://localhost:3000", { withCredentials: true })
+ tempSocket.on("ai-response", (message) => {
+  console.log(message)
+
+  setPendingResponses((pending) => {
+    const remaining = (pending[message.chat] || 0) - 1
+    if (remaining > 0) return { ...pending, [message.chat]: remaining }
+    const nextPending = { ...pending }
+    delete nextPending[message.chat]
+    return nextPending
+  })
+
+  dispatch(messageAdded({
+    chatId: message.chat,
+    message: {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: message.content,
+    },
+  }))
+})
+
+  setSocket(tempSocket)
+  
+  return () => {
+  tempSocket.disconnect()
+}
+
+},[])
 
   const selectChat = (chatId) => {
     dispatch(chatSelected(chatId))
     setIsSidebarOpen(false)
+
   }
 
   const deleteChat = (chatId) => {
@@ -81,24 +116,40 @@ useEffect(()=>{
     if (!content) return
 
     let chatId = currentChatId
-    if (!chatId) {
-      chatId = crypto.randomUUID()
-      dispatch(chatCreated({ id: chatId, title: content.slice(0, 36), updatedAt: 'Now' }))
-    }
+   if (!chatId) {
+  openCreateChat()
+  return
+}
+if (!socket) return
+setPendingResponses((pending) => ({
+  ...pending,
+  [chatId]: (pending[chatId] || 0) + 1,
+}))
+    socket.emit("ai-message", {
+  chat: chatId,
+  content: content,
+})
 
-    dispatch(messageAdded({
-      chatId,
-      message: { id: crypto.randomUUID(), role: 'user', content },
-    }))
-    dispatch(messageAdded({
-      chatId,
-      message: {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: 'That is a good place to start. I can help you explore the options and shape a plan that fits what you have in mind.',
-      },
-    }))
+  dispatch(messageAdded({
+  chatId,
+  message: {
+    id: crypto.randomUUID(),
+    role: "user",
+    content,
+  },
+}))
+    // dispatch(messageAdded({
+    //   chatId,
+    //   message: {
+    //     id: crypto.randomUUID(),
+    //     role: 'assistant',
+    //     content: 'That is a good place to start. I can help you explore the options and shape a plan that fits what you have in mind.',
+    //   },
+    // }))
     setUserInput('')
+    return () => {
+  tempSocket.disconnect()
+}
   }
 
   return (
@@ -123,6 +174,7 @@ useEffect(()=>{
             ...activeChat,
             messages: activeMessages,
           } : null}
+          isThinking={Boolean(pendingResponses[currentChatId])}
           onOpenSidebar={openSidebar}
           onCreateChat={openCreateChat}
         />

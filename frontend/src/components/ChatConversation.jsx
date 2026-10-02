@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import ChatIcon from './ChatIcon'
 
-const ChatConversation = ({ activeChat, onOpenSidebar, onCreateChat }) => {
+const ChatConversation = ({ activeChat, isThinking, onOpenSidebar, onCreateChat }) => {
   const [activeMode, setActiveMode] = useState('Chat')
 
   return (
@@ -46,6 +46,12 @@ const ChatConversation = ({ activeChat, onOpenSidebar, onCreateChat }) => {
                 <p>{message.content}</p>
               </article>
             ))}
+            {isThinking && (
+              <article className="chat-message assistant is-thinking" aria-label="AI is thinking">
+                <span className="assistant-mark" aria-hidden="true">C</span>
+                <p>Thinking<span className="thinking-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></p>
+              </article>
+            )}
           </div>
         ) : (
           <div className="chat-welcome">

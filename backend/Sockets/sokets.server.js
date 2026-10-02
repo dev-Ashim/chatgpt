@@ -7,10 +7,15 @@ const mesaageModel=require('../models/message.model')
 const {createMemory,queryMemory}=require('../service/vector.service')
 
 function initSocketServer(httpServer) {
-    const io = new Server(httpServer, {});
+    const io = new Server(httpServer, {
+  cors: {
+    origin: "http://localhost:5173",
+    credentials: true,
+  },
+});
 
     io.use(async (socket, next) => {
-        const cookies = cookie.parse(socket.handshake.headers?.cookie || "");
+        const cookies = cookie.parse(socket.handshake.headers?.cookie || ""); 
 
         if (!cookies.token) {
             next(new Error("Authentication error:no token"));
@@ -33,7 +38,7 @@ function initSocketServer(httpServer) {
     /*   const message = await mesaageModel.create({
                 user: socket.user._id, 
                 chat: messagePayLoad.chat,
-                content: messagePayLoad.content,
+                content: messagePayLoad.content, 
                 role: "user",
             });*/
           /*  const vector= await aiServices.createEmbedding(messagePayLoad.content) */
@@ -79,9 +84,15 @@ function initSocketServer(httpServer) {
 }
           }) ,
           mesaageModel.find({
-                chat:messagePayLoad.chat
-            }).sort({createdAt:-1}).limit(20).lean()
-    ])
+    chat: messagePayLoad.chat
+  })
+  .sort({ createdAt: -1 })
+  .limit(20)
+  .lean()
+])
+
+
+chatHistory.reverse()
      
            const stm=chatHistory.map((item) => {
         return {
