@@ -102,11 +102,11 @@ const ChatSidebar = ({
         )}
         <nav className="chat-list" aria-label="Recent conversations">
         {filteredChats.map((chat) => (
-          <div className={`chat-list-row${chat.id === activeChatId ? ' is-active' : ''}`} key={chat.id}>
+          <div className={`chat-list-row${(chat._id || chat.id) === activeChatId? ' is-active' : ''}`} key={chat._id || chat.id}>
             <button
               className="chat-list-item"
               type="button"
-              onClick={() => onSelectChat(chat.id)}
+              onClick={() => onSelectChat(chat._id || chat.id)}
             >
               <span className="chat-list-title">{chat.title}</span>
             </button>
@@ -115,7 +115,7 @@ const ChatSidebar = ({
               type="button"
               aria-label={`Delete chat: ${chat.title}`}
               title="Delete chat"
-              onClick={() => onDeleteChat(chat.id)}
+             onClick={() => onDeleteChat(chat._id || chat.id)}
             >
               <ChatIcon name="close" size={13} />
             </button>

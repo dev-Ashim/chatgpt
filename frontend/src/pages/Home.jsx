@@ -1,101 +1,70 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import ChatComposer from '../components/ChatComposer'
 import ChatConversation from '../components/ChatConversation'
 import ChatSidebar from '../components/ChatSidebar'
-
-const initialChats = [
-  {
-    id: 'weekend-trip',
-    title: 'Planning a weekend trip',
-    updatedAt: 'Today',
-    messages: [
-      { id: 'trip-1', role: 'assistant', content: 'Hi there. What would you like to plan today?' },
-      { id: 'trip-2', role: 'user', content: 'I want to plan a relaxed weekend trip.' },
-      { id: 'trip-3', role: 'assistant', content: 'A relaxed weekend sounds lovely. Do you have a destination in mind, or should we start with a few ideas?' },
-    ],
-  },
-  {
-    id: 'easy-dinners',
-    title: 'Easy weeknight dinners',
-    updatedAt: 'Yesterday',
-    messages: [
-      { id: 'dinner-1', role: 'assistant', content: 'I can help you find a few simple dinner ideas. What ingredients do you have?' },
-    ],
-  },
-  {
-    id: 'reading-list',
-    title: 'Build a reading list',
-    updatedAt: 'Mon',
-    messages: [
-      { id: 'reading-1', role: 'assistant', content: 'What kind of books are you in the mood for?' },
-    ],
-  },
-  ...[
-    'Bro Conversation',
-    'AI Interview Preparation',
-    'Internship Assessment Advice',
-    'Interview Preparation Advice',
-    'Internship Application Advice',
-    'Location Update',
-    'Internship Message Draft',
-    'Email Forensics Summary',
-    'Internship Strategy Advice',
-    'Internship Outreach Message',
-    'Recruiter Message Draft',
-    'Internship Suitability Review',
-    'Job Eligibility Check',
-  ].map((title, index) => ({
-    id: `recent-${index}`,
-    title,
-    updatedAt: '',
-    messages: [],
-  })),
-]
-
-const demoReply = 'That is a good place to start. I can help you explore the options and shape a plan that fits what you have in mind.'
+import CreateChatDialog from '../components/CreateChatDialog'
+import { chatCreated, chatDeleted, chatSelected, messageAdded,setchats} from '../store/chatSlice'
+  import axios from 'axios'
 
 const Home = ({ onLogout, userName }) => {
-  const [chats, setChats] = useState(initialChats)
-  const [activeChatId, setActiveChatId] = useState('')
+  const dispatch = useDispatch()
+  const { chats, currentChatId, messagesByChatId } = useSelector((state) => state.chat)
   const [userInput, setUserInput] = useState('')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [newChatTitle, setNewChatTitle] = useState('')
 
-  const activeChat = chats.find((chat) => chat.id === activeChatId)
-  const accountInitials = userName
+  const activeChat = chats.find((chat) => chat.id === currentChatId)
+  const activeMessages = activeChat ? messagesByChatId[activeChat.id] || [] : []
+  const accountInitials = (userName || 'Account')
     .split(/\s+/)
     .map((namePart) => namePart[0])
     .join('')
     .slice(0, 2)
     .toUpperCase()
 
-  const createChat = () => {
-    const newChat = {
-      id: crypto.randomUUID(),
-      title: 'New conversation',
-      updatedAt: 'Now',
-      messages: [],
-    }
+  const openCreateChat = () => {
+    setNewChatTitle('')
+    setIsCreateDialogOpen(true)
+  }
 
-    setChats((currentChats) => [newChat, ...currentChats])
-    setActiveChatId(newChat.id)
+  const createChat = async(event) => {
+    event.preventDefault()
+    const title = newChatTitle.trim()
+    if (!title) return
+
+    const response = await axios.post('http://localhost:3000/api/chat/', { title }, {
+      withCredentials: true,
+    })
+    console.log(response.data)
+    dispatch(chatCreated({
+      id: response.data.chat._id,
+      title: response.data.chat.title,
+      updatedAt: 'Now',
+    }))
+    setIsCreateDialogOpen(false)
     setUserInput('')
     setIsSidebarOpen(false)
     setIsSidebarCollapsed(false)
   }
 
+useEffect(()=>{
+  axios.get('http://localhost:3000/api/chat/', { withCredentials: true }).
+  then((response) => {
+    console.log(response.data)
+    dispatch(setchats(response.data.chats))
+  })
+},[dispatch])
+
   const selectChat = (chatId) => {
-    setActiveChatId(chatId)
+    dispatch(chatSelected(chatId))
     setIsSidebarOpen(false)
   }
 
   const deleteChat = (chatId) => {
-    const remainingChats = chats.filter((chat) => chat.id !== chatId)
-    setChats(remainingChats)
-
-    if (activeChatId === chatId) {
-      setActiveChatId(remainingChats[0]?.id || '')
-    }
+    dispatch(chatDeleted(chatId))
   }
 
   const openSidebar = () => {
@@ -111,30 +80,24 @@ const Home = ({ onLogout, userName }) => {
     const content = userInput.trim()
     if (!content) return
 
-    const chatId = activeChatId || crypto.randomUUID()
-    const currentChat = chats.find((chat) => chat.id === chatId)
-    const userMessage = { id: crypto.randomUUID(), role: 'user', content }
-    const assistantMessage = { id: crypto.randomUUID(), role: 'assistant', content: demoReply }
-
-    if (!currentChat) {
-      setChats((currentChats) => [{
-        id: chatId,
-        title: content.slice(0, 36),
-        updatedAt: 'Now',
-        messages: [userMessage, assistantMessage],
-      }, ...currentChats])
-      setActiveChatId(chatId)
-    } else {
-      setChats((currentChats) => currentChats.map((chat) => chat.id === chatId
-        ? {
-          ...chat,
-          title: chat.messages.length === 0 ? content.slice(0, 36) : chat.title,
-          updatedAt: 'Now',
-          messages: [...chat.messages, userMessage, assistantMessage],
-        }
-        : chat))
+    let chatId = currentChatId
+    if (!chatId) {
+      chatId = crypto.randomUUID()
+      dispatch(chatCreated({ id: chatId, title: content.slice(0, 36), updatedAt: 'Now' }))
     }
 
+    dispatch(messageAdded({
+      chatId,
+      message: { id: crypto.randomUUID(), role: 'user', content },
+    }))
+    dispatch(messageAdded({
+      chatId,
+      message: {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: 'That is a good place to start. I can help you explore the options and shape a plan that fits what you have in mind.',
+      },
+    }))
     setUserInput('')
   }
 
@@ -142,24 +105,26 @@ const Home = ({ onLogout, userName }) => {
     <main className={`chat-app${isSidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}>
       <ChatSidebar
         chats={chats}
-        activeChatId={activeChatId}
+        activeChatId={currentChatId}
         accountInitials={accountInitials}
         userName={userName}
         isOpen={isSidebarOpen}
         isCollapsed={isSidebarCollapsed}
         onClose={() => setIsSidebarOpen(false)}
         onToggleCollapse={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
-        onCreateChat={createChat}
+        onCreateChat={openCreateChat}
         onSelectChat={selectChat}
         onDeleteChat={deleteChat}
         onLogout={onLogout}
       />
-      <section className={`chat-main${activeChat?.messages.length ? ' has-messages' : ' is-empty'}`} aria-label="Chat with AI">
+      <section className={`chat-main${activeMessages.length ? ' has-messages' : ' is-empty'}`} aria-label="Chat with AI">
         <ChatConversation
-          activeChat={activeChat}
+          activeChat={activeChat ? {
+            ...activeChat,
+            messages: activeMessages,
+          } : null}
           onOpenSidebar={openSidebar}
-          onCreateChat={createChat}
-          onSuggestion={setUserInput}
+          onCreateChat={openCreateChat}
         />
         <ChatComposer
           userInput={userInput}
@@ -167,6 +132,14 @@ const Home = ({ onLogout, userName }) => {
           onSend={sendMessage}
         />
       </section>
+      {isCreateDialogOpen && (
+        <CreateChatDialog
+          title={newChatTitle}
+          onTitleChange={setNewChatTitle}
+          onClose={() => setIsCreateDialogOpen(false)}
+          onSubmit={createChat}
+        />
+      )}
     </main>
   )
 }
