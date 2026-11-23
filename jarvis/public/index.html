@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Azreal</title>
+<style>
+  :root {
+    --bg: #05080d; --panel: #0b121b; --line: #16324a; --text: #d6e9f8; --muted: #6f8aa3;
+    --core: #36c8ff; --core-2: #7be0ff; --warn: #ffb547; --ok: #4fe3a1; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 30%, #0b1a28 0%, var(--bg) 60%);
+    color: var(--text); font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; overflow: hidden;
+  }
+  header { width: 100%; max-width: 760px; display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 0; }
+  .brand { letter-spacing: .35em; font-weight: 600; color: var(--core-2); font-size: 13px; }
+  .icon-btn { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px; }
+  .icon-btn:hover { color: var(--text); border-color: var(--core); }
+
+  /* ---- reactor ---- */
+  .stage { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; padding: 18px 0 6px; }
+  #orb { position: relative; width: 200px; height: 200px; border: none; background: none; cursor: pointer; padding: 0; outline: none; }
+  #orb .ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(54,200,255,.25); }
+  #orb .r1 { inset: 0; border-style: dashed; animation: spin 24s linear infinite; }
+  #orb .r2 { inset: 18px; border-color: rgba(54,200,255,.45); border-top-color: transparent; border-bottom-color: transparent; animation: spin 9s linear infinite reverse; }
+  #orb .r3 { inset: 38px; border-width: 3px; border-color: rgba(123,224,255,.6); border-left-color: transparent; animation: spin 5s linear infinite; }
+  #orb .core { position: absolute; inset: 62px; border-radius: 50%;
+    background: radial-gradient(circle, #e9fbff 0%, var(--core-2) 25%, var(--core) 55%, rgba(54,200,255,0) 72%);
+    box-shadow: 0 0 40px 8px rgba(54,200,255,.35); transition: transform .25s, box-shadow .25s; }
+  #orb:focus-visible .r1 { border-color: var(--core-2); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 50% { transform: scale(1.15); box-shadow: 0 0 70px 20px rgba(54,200,255,.55); } }
+  @keyframes think { 50% { opacity: .45; } }
+  body[data-state="listening"] #orb .core { animation: pulse 1s ease-in-out infinite; }
+  body[data-state="listening"] #orb .r1 { border-color: rgba(79,227,161,.6); }
+  body[data-state="thinking"] #orb .core { animation: think .8s ease-in-out infinite; }
+  body[data-state="thinking"] #orb .r2, body[data-state="thinking"] #orb .r3 { animation-duration: 1.2s; }
+  body[data-state="speaking"] #orb .core { transform: scale(var(--amp, 1.05)); }
+  body[data-state="confirm"] #orb .core { background: radial-gradient(circle, #fff6e6 0%, #ffd08a 25%, var(--warn) 55%, rgba(255,181,71,0) 72%); box-shadow: 0 0 50px 10px rgba(255,181,71,.35); }
+  #status { margin-top: 12px; color: var(--muted); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; min-height: 20px; }
+  #interim { color: var(--core-2); min-height: 22px; font-style: italic; text-align: center; padding: 0 16px; }
+
+  /* ---- log ---- */
+  #log { flex: 1 1 auto; width: 100%; max-width: 760px; overflow-y: auto; padding: 8px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 85%; padding: 9px 13px; border-radius: 12px; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { align-self: flex-end; background: #12304a; }
+  .msg.jarvis { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); }
+  .msg.err { border-color: var(--bad); color: #ffc4c4; }
+  .acts { align-self: flex-start; display: flex; flex-wrap: wrap; gap: 6px; }
+  .act { font: 12px ui-monospace, Consolas, monospace; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .act.ok::before { content: "✓ "; color: var(--ok); }
+  .act.bad::before { content: "✗ "; color: var(--bad); }
+
+  .confirm { align-self: stretch; border: 1px solid var(--warn); background: #1d1608; border-radius: 12px; padding: 12px 14px; }
+  .confirm p { margin: 0 0 10px; }
+  .confirm code { color: #ffe2b0; word-break: break-all; }
+  .confirm button { font: inherit; border-radius: 8px; padding: 6px 16px; cursor: pointer; margin-right: 8px; border: 1px solid; }
+  .yes { background: var(--warn); border-color: var(--warn); color: #1b1203; font-weight: 600; }
+  .no { background: none; border-color: var(--muted); color: var(--text); }
+
+  /* ---- input ---- */
+  form { width: 100%; max-width: 760px; display: flex; gap: 8px; padding: 10px 16px 16px; }
+  #text { flex: 1; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 10px 12px; font: inherit; outline: none; }
+  #text:focus { border-color: var(--core); }
+  form button { background: var(--core); color: #001521; border: none; border-radius: 10px; padding: 0 16px; font-weight: 600; cursor: pointer; }
+
+  /* ---- settings ---- */
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px; width: min(420px, calc(100% - 32px)); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog label { display: block; margin: 12px 0 4px; color: var(--muted); font-size: 13px; }
+  dialog select { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px; font: inherit; }
+  dialog .check { display: flex; gap: 8px; align-items: flex-start; color: var(--text); font-size: 14px; }
+  dialog .check small { display: block; color: var(--muted); }
+  .hint { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16px; }
+</style>
+</head>
+<body data-state="idle">
+  <header>
+    <div class="brand">AZREAL</div>
+    <div>
+      <button class="icon-btn" id="resetBtn" title="Forget this conversation">New chat</button>
+      <button class="icon-btn" id="settingsBtn">Settings</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <button id="orb" aria-label="Talk to Azreal">
+      <span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span><span class="core"></span>
+    </button>
+    <div id="status">Tap the core to begin</div>
+    <div id="interim"></div>
+  </div>
+
+  <div id="log" aria-live="polite"></div>
+
+  <form id="form">
+    <input id="text" autocomplete="off" placeholder="Type a command, or press Space / tap the core to speak">
+    <button>Send</button>
+  </form>
+  <div class="hint">Space: talk · Esc: stop · Say "Azreal …" with wake word on</div>
+
+  <dialog id="settings">
+    <h3 style="margin:0 0 4px">Settings</h3>
+    <label for="voiceSel">Voice</label>
+    <select id="voiceSel"></select>
+    <label for="langSel">Listening language</label>
+    <select id="langSel">
+      <option value="en-IN">English (India) – handles Hinglish</option>
+      <option value="en-US">English (US)</option>
+      <option value="en-GB">English (UK)</option>
+      <option value="hi-IN">Hindi</option>
+    </select>
+    <label class="check"><input type="checkbox" id="convoChk"><span>Conversation mode<small>Keep listening after each reply.</small></span></label>
+    <label class="check"><input type="checkbox" id="wakeChk"><span>Wake word "Azreal"<small>Listens in the background while this window is open.</small></span></label>
+    <div style="text-align:right;margin-top:16px"><button class="icon-btn" onclick="settings.close()">Done</button></div>
+  </dialog>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+const synth = window.speechSynthesis
+
+// ---------- settings (stored per browser) ----------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('jarvis.' + k); return v === null ? d : JSON.parse(v) } catch { return d } },
+  set(k, v) { try { localStorage.setItem('jarvis.' + k, JSON.stringify(v)) } catch {} },
+}
+const cfg = { voice: store.get('voice', ''), lang: store.get('lang', 'en-IN'), convo: store.get('convo', false), wake: store.get('wake', false) }
+
+let state = 'idle', started = false, pending = null, rec = null, wakeRec = null
+
+function setState(s, label) {
+  state = s
+  document.body.dataset.state = s
+  $('status').textContent = label ?? { idle: 'Standing by', listening: 'Listening…', thinking: 'Processing…', speaking: 'Speaking', confirm: 'Awaiting approval' }[s]
+}
+
+// ---------- log ----------
+function addMsg(who, text, cls = '') {
+  const d = document.createElement('div')
+  d.className = `msg ${who} ${cls}`
+  d.textContent = text
+  $('log').append(d)
+  d.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  return d
+}
+function addActions(actions = []) {
+  if (!actions.length) return
+  const wrap = document.createElement('div')
+  wrap.className = 'acts'
+  for (const a of actions) {
+    const s = document.createElement('span')
+    s.className = 'act ' + (a.ok ? 'ok' : 'bad')
+    s.textContent = `${a.tool}: ${a.result}`
+    s.title = a.result
+    wrap.append(s)
+  }
+  $('log').append(wrap)
+}
+
+// ---------- voice out ----------
+let voices = []
+function loadVoices() {
+  voices = synth.getVoices().filter((v) => /^(en|hi)/i.test(v.lang))
+  const sel = $('voiceSel')
+  sel.innerHTML = '<option value="">Auto (best male English voice)</option>' +
+    voices.map((v) => `<option value="${v.name}">${v.name} (${v.lang})</option>`).join('')
+  sel.value = cfg.voice
+}
+synth.onvoiceschanged = loadVoices
+loadVoices()
+
+function pickVoice() {
+  if (cfg.voice) { const v = voices.find((v) => v.name === cfg.voice); if (v) return v }
+  const male = /(Guy|Ryan|Prabhat|Christopher|Eric|Andrew|Brian|Thomas|Daniel|George|Ravi|Male)/i
+  return voices.find((v) => /Natural/i.test(v.name) && /^en-(GB|IN|US)/.test(v.lang) && male.test(v.name))
+    || voices.find((v) => /^en-GB/.test(v.lang) && male.test(v.name))
+    || voices.find((v) => /^en/.test(v.lang) && male.test(v.name))
+    || voices.find((v) => /^en/.test(v.lang)) || null
+}
+
+function speak(text, done) {
+  synth.cancel()
+  const clean = text.replace(/[*_#`>]/g, '').replace(/https?:\/\/\S+/g, 'the link').trim()
+  // Long utterances get cut off in Chromium, so speak sentence-sized chunks
+  const chunks = clean.match(/[^.!?\n]+[.!?]*|\n/g)?.map((c) => c.trim()).filter(Boolean) || []
+  if (!chunks.length) return done?.()
+  setState('speaking')
+  const voice = pickVoice()
+  let pulse = setInterval(() => document.body.style.setProperty('--amp', (1 + Math.random() * 0.18).toFixed(2)), 120)
+  chunks.forEach((c, i) => {
+    const u = new SpeechSynthesisUtterance(c)
+    if (voice) u.voice = voice
+    u.rate = 1.05
+    u.pitch = 0.95
+    if (i === chunks.length - 1) {
+      u.onend = u.onerror = () => {
+        clearInterval(pulse)
+        if (state === 'speaking') setState('idle')
+        done?.()
+      }
+    }
+    synth.speak(u)
+  })
+}
+
+function stopAll() {
+  synth.cancel()
+  rec?.abort()
+  if (state === 'speaking' || state === 'listening') setState(pending ? 'confirm' : 'idle')
+}
+
+// ---------- voice in ----------
+function listen() {
+  if (!SR) { setState('idle', 'Voice input needs Edge or Chrome'); $('text').focus(); return }
+  stopWake()
+  synth.cancel()
+  let finalText = ''
+  rec = new SR()
+  rec.lang = cfg.lang
+  rec.interimResults = true
+  rec.continuous = false
+  rec.onresult = (e) => {
+    let interim = ''
+    for (const r of e.results) r.isFinal ? (finalText = r[0].transcript) : (interim += r[0].transcript)
+    $('interim').textContent = interim || finalText
+  }
+  rec.onerror = (e) => {
+    if (e.error === 'not-allowed') setState('idle', 'Microphone blocked: allow it in the address bar')
+  }
+  rec.onend = () => {
+    rec = null
+    $('interim').textContent = ''
+    if (finalText.trim()) handle(finalText.trim())
+    else { if (state === 'listening') setState(pending ? 'confirm' : 'idle'); startWake() }
+  }
+  rec.start()
+  setState('listening')
+}
+
+// Background "Jarvis ..." detection
+const WAKE = /\b(azreal|azrael|azriel|israel|as real|jarvis)\b[\s,.!]*/i
+function startWake() {
+  if (!cfg.wake || !SR || wakeRec || state !== 'idle') return
+  wakeRec = new SR()
+  wakeRec.lang = cfg.lang
+  wakeRec.continuous = true
+  wakeRec.interimResults = false
+  wakeRec.onresult = (e) => {
+    const said = e.results[e.results.length - 1][0].transcript
+    const m = said.match(WAKE)
+    if (!m) return
+    const rest = said.slice(m.index + m[0].length).trim()
+    stopWake()
+    if (rest.split(' ').length >= 2) handle(rest)
+    else speak('Yes, boss?', listen)
+  }
+  wakeRec.onerror = (e) => { if (e.error === 'not-allowed') { cfg.wake = false; store.set('wake', false); $('wakeChk').checked = false } }
+  wakeRec.onend = () => { wakeRec = null; setTimeout(startWake, 400) }
+  try { wakeRec.start() } catch { wakeRec = null }
+}
+function stopWake() {
+  if (!wakeRec) return
+  const r = wakeRec
+  wakeRec = null
+  r.onend = null
+  r.abort()
+}
+
+// ---------- talking to the server ----------
+async function api(path, body) {
+  const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Jarvis': '1' }, body: JSON.stringify(body) })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Server error ${res.status}`)
+  return data
+}
+
+const YES = /\b(yes|yeah|yep|yup|haan|han|ha|ok|okay|sure|do it|go ahead|proceed|confirm|allow|kar do|karo)\b/i
+const NO = /\b(no|nope|nah|nahi|nahin|cancel|stop|deny|don't|dont|mat)\b/i
+
+async function handle(text) {
+  if (pending) {
+    addMsg('user', text)
+    if (NO.test(text)) return decide(false)
+    if (YES.test(text)) return decide(true)
+    return speak('Please say yes or no.', listen)
+  }
+  addMsg('user', text)
+  setState('thinking')
+  try { show(await api('/api/chat', { message: text })) }
+  catch (e) { fail(e) }
+}
+
+async function decide(approve) {
+  if (!pending) return
+  const id = pending.id
+  pending.card.querySelectorAll('button').forEach((b) => (b.disabled = true))
+  pending.card.querySelector('p').append(approve ? ' — approved' : ' — denied')
+  pending = null
+  setState('thinking')
+  try { show(await api('/api/confirm', { id, approve })) }
+  catch (e) { fail(e) }
+}
+
+function show(r) {
+  addActions(r.actions)
+  if (r.confirm) {
+    const card = document.createElement('div')
+    card.className = 'confirm'
+    card.innerHTML = '<p>Allow Azreal to <code></code>?</p><button class="yes">Allow</button><button class="no">Deny</button>'
+    card.querySelector('code').textContent = r.confirm.text
+    card.querySelector('.yes').onclick = () => { stopAll(); decide(true) }
+    card.querySelector('.no').onclick = () => { stopAll(); decide(false) }
+    $('log').append(card)
+    card.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    pending = { id: r.confirm.id, card }
+    setState('confirm')
+    speak(r.confirm.say, () => { if (pending) { setState('confirm'); SR && listen() } })
+    return
+  }
+  addMsg('jarvis', r.reply)
+  speak(r.reply, () => { cfg.convo ? listen() : startWake() })
+}
+
+function fail(e) {
+  addMsg('jarvis', e.message, 'err')
+  setState('idle')
+  speak('Sorry boss, something went wrong.', startWake)
+}
+
+// ---------- controls ----------
+$('orb').onclick = () => {
+  if (!started) {
+    started = true
+    speak('Azreal online. What do you need, boss?', listen)
+    return
+  }
+  if (state === 'speaking') { synth.cancel(); setState(pending ? 'confirm' : 'idle'); return }
+  if (state === 'listening') { rec?.stop(); return }
+  if (state === 'thinking') return
+  listen()
+}
+
+$('form').onsubmit = (e) => {
+  e.preventDefault()
+  const t = $('text').value.trim()
+  if (!t || state === 'thinking') return
+  started = true
+  $('text').value = ''
+  stopAll()
+  handle(t)
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') return stopAll()
+  if (e.code === 'Space' && document.activeElement === document.body) { e.preventDefault(); $('orb').click() }
+})
+
+$('resetBtn').onclick = async () => {
+  stopAll()
+  pending = null
+  await api('/api/reset', {}).catch(() => {})
+  $('log').innerHTML = ''
+  setState('idle')
+}
+
+const settings = $('settings')
+$('settingsBtn').onclick = () => settings.showModal()
+$('voiceSel').onchange = (e) => { cfg.voice = e.target.value; store.set('voice', cfg.voice); speak('Voice updated.') }
+$('langSel').value = cfg.lang
+$('langSel').onchange = (e) => { cfg.lang = e.target.value; store.set('lang', cfg.lang); stopWake(); startWake() }
+$('convoChk').checked = cfg.convo
+$('convoChk').onchange = (e) => { cfg.convo = e.target.checked; store.set('convo', cfg.convo) }
+$('wakeChk').checked = cfg.wake
+$('wakeChk').onchange = (e) => { cfg.wake = e.target.checked; store.set('wake', cfg.wake); cfg.wake ? startWake() : stopWake() }
+
+// Timers/reminders pushed from the server
+const ev = new EventSource('/api/events')
+ev.onmessage = (m) => {
+  const e = JSON.parse(m.data)
+  if (e.type === 'reminder') { addMsg('jarvis', '⏰ ' + e.text); speak('Reminder, boss. ' + e.text, startWake) }
+}
+
+if (!SR) $('status').textContent = 'Voice input needs Edge or Chrome. You can still type.'
+startWake()
+</script>
+</body>
+</html>

@@ -1,43 +1,49 @@
-import AuthLayout from '../components/AuthLayout'
+import { useState } from 'react'
 import axios from 'axios'
-import{useNavigate}from'react-router-dom'
-
-
+import { useNavigate } from 'react-router-dom'
+import AuthLayout from '../components/AuthLayout'
 
 const Login = ({ onAuthenticated }) => {
   const navigate = useNavigate()
-    const handleSubmit = async (event) => {
-  event.preventDefault();
+  const [status, setStatus] = useState('idle')
+  const [error, setError] = useState('')
 
-  const email = event.target.email.value;
-  const password = event.target.password.value;
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    const email = event.target.email.value
+    const password = event.target.password.value
 
-  try {
-    const response = await axios.post(
-      "http://localhost:3000/api/auth/login",
-      { email, password },
-      { withCredentials: true }
-    );
-
-    onAuthenticated(response.data.user)
-    navigate("/");
-  } catch (error) {
-    console.log(error.response?.data || error.message);
+    setStatus('loading')
+    setError('')
+    try {
+      const response = await axios.post(
+        'http://localhost:3000/api/auth/login',
+        { email, password },
+        { withCredentials: true }
+      )
+      onAuthenticated(response.data.user)
+      navigate('/')
+    } catch (err) {
+      setError(err.response?.data?.message || 'The circle could not be reached. Is the server running?')
+      setStatus('error')
+    }
   }
-};
-  return (
 
-      
-   
+  const loading = status === 'loading'
+
+  return (
     <AuthLayout
-      eyebrow="Welcome back"
+      mode="login"
+      eyebrow="The circle awaits"
       title="Log in"
-      description="Enter your details to pick up where you left off."
-      footerText="New to ChatSpace?"
+      description="Return to the dark. Your conversations never left."
+      footerText="No pact yet?"
       footerLabel="Create an account"
       footerTo="/register"
+      status={status}
+      error={error}
     >
-         <form className="auth-form" onSubmit={handleSubmit}>
+      <form className="hx-form" onSubmit={handleSubmit} onChange={() => status === 'error' && setStatus('idle')}>
         <label htmlFor="login-email">
           Email
           <input id="login-email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required />
@@ -46,7 +52,9 @@ const Login = ({ onAuthenticated }) => {
           Password
           <input id="login-password" name="password" type="password" placeholder="Enter your password" autoComplete="current-password" required />
         </label>
-        <button className="button" type="submit">Log in</button>
+        <button className="hx-button" type="submit" disabled={loading}>
+          <span>{loading ? 'Summoning…' : 'Log in'}</span>
+        </button>
       </form>
     </AuthLayout>
   )

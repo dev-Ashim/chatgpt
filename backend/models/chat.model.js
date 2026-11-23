@@ -8,7 +8,7 @@ const chatSchema=new mongoose.Schema({
     },
     title:{
         type:String,
-        required:true
+        default:"New chat"
     },
     lastTime:{
         type:Date,

@@ -13,6 +13,7 @@ const ChatSidebar = ({
   onCreateChat,
   onSelectChat,
   onDeleteChat,
+  onOpenMemories,
   onLogout,
 }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -33,7 +34,8 @@ const ChatSidebar = ({
     <aside className={`chat-sidebar${isOpen ? ' is-open' : ''}`} aria-label="Previous chats">
       <div className="sidebar-topline">
         <div className="chat-brand-selector">
-          <span className="chat-brand">ChatSpace</span>
+          <span className="brand-glyph" aria-hidden="true" />
+          <span className="chat-brand">AZREAL</span>
           <ChatIcon name="chevronDown" size={13} />
         </div>
         <div className="sidebar-tools">
@@ -75,6 +77,9 @@ const ChatSidebar = ({
       </button>
 
       <nav className="sidebar-navigation" aria-label="Main menu">
+        <button className="sidebar-nav-item" type="button" onClick={onOpenMemories}>
+          <ChatIcon name="memory" /><span>Memories</span>
+        </button>
         <div className="sidebar-nav-item"><ChatIcon name="schedule" /><span>Scheduled</span></div>
         <div className="sidebar-nav-item"><ChatIcon name="library" /><span>Library</span></div>
         <div className="sidebar-nav-item"><ChatIcon name="plugins" /><span>Plugins</span></div>
